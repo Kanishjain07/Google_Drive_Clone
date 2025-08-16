@@ -1,7 +1,7 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Depends
 from schemas import UserCreate, UserLogin, UserResponse, Token
 from supabase_client import supabase, USERS_TABLE
-from auth_utils import get_password_hash, verify_password, create_access_token
+from auth_utils import get_password_hash, verify_password, create_access_token, get_current_user_email
 import uuid
 from datetime import datetime
 
@@ -103,7 +103,7 @@ async def login(user_data: UserLogin):
         )
 
 @router.get("/me", response_model=UserResponse)
-async def get_current_user_info(current_user_email: str):
+async def get_current_user_info(current_user_email: str = Depends(get_current_user_email)):
     try:
         result = supabase.table(USERS_TABLE).select("*").eq("email", current_user_email).execute()
         

@@ -17,7 +17,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 @router.post("/upload", response_model=FileResponse)
 async def upload_file(
     file: UploadFile = File(...),
-    folder_id: Optional[str] = Form(None),
+    folder_id: Optional[str] = Form("null"),
     current_user_email: str = Depends(get_current_user_email)
 ):
     try:
@@ -75,7 +75,7 @@ async def upload_file(
             owner_id=created_file["owner_id"],
             is_starred=created_file["is_starred"],
             created_at=datetime.fromisoformat(created_file["created_at"]),
-            updated_at=datetime.fromisoformat(created_file["updated_at"]) if created_file["updated_at"] else None
+            updated_at=datetime.fromisoformat(created_file["updated_at"]) if created_file["updated_at"] else "null"
         )
         
     except HTTPException:
@@ -86,7 +86,7 @@ async def upload_file(
 
 @router.get("/list", response_model=List[FileResponse])
 async def list_files(
-    folder_id: Optional[str] = None,
+    folder_id: Optional[str] = "null",
     current_user_email: str = Depends(get_current_user_email)
 ):
     try:
@@ -103,7 +103,7 @@ async def list_files(
         if folder_id:
             query = query.eq("folder_id", folder_id)
         else:
-            query = query.is_("folder_id", None)
+            query = query.is_("folder_id", "null")
         
         result = query.execute()
         
@@ -123,7 +123,7 @@ async def list_files(
                 owner_id=file_data["owner_id"],
                 is_starred=file_data["is_starred"],
                 created_at=datetime.fromisoformat(file_data["created_at"]),
-                updated_at=datetime.fromisoformat(file_data["updated_at"]) if file_data["updated_at"] else None
+                updated_at=datetime.fromisoformat(file_data["updated_at"]) if file_data["updated_at"] else "null"
             ))
         
         return files
@@ -167,7 +167,7 @@ async def get_file(
             owner_id=file_data["owner_id"],
             is_starred=file_data["is_starred"],
             created_at=datetime.fromisoformat(file_data["created_at"]),
-            updated_at=datetime.fromisoformat(file_data["updated_at"]) if file_data["updated_at"] else None
+            updated_at=datetime.fromisoformat(file_data["updated_at"]) if file_data["updated_at"] else "null"
         )
         
     except HTTPException:

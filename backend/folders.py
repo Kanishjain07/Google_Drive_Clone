@@ -55,7 +55,7 @@ async def create_folder(
             owner_id=created_folder["owner_id"],
             is_starred=created_folder["is_starred"],
             created_at=datetime.fromisoformat(created_folder["created_at"]),
-            updated_at=datetime.fromisoformat(created_folder["updated_at"]) if created_folder["updated_at"] else None
+            updated_at=datetime.fromisoformat(created_folder["updated_at"]) if created_folder["updated_at"] else "null"
         )
         
     except HTTPException:
@@ -66,7 +66,7 @@ async def create_folder(
 
 @router.get("/list", response_model=List[FolderResponse])
 async def list_folders(
-    parent_id: Optional[str] = None,
+    parent_id: Optional[str] = "null",
     current_user_email: str = Depends(get_current_user_email)
 ):
     try:
@@ -83,7 +83,7 @@ async def list_folders(
         if parent_id:
             query = query.eq("parent_id", parent_id)
         else:
-            query = query.is_("parent_id", None)
+            query = query.is_("parent_id", "null")
         
         result = query.execute()
         
@@ -100,7 +100,7 @@ async def list_folders(
                 owner_id=folder_data["owner_id"],
                 is_starred=folder_data["is_starred"],
                 created_at=datetime.fromisoformat(folder_data["created_at"]),
-                updated_at=datetime.fromisoformat(folder_data["updated_at"]) if folder_data["updated_at"] else None
+                updated_at=datetime.fromisoformat(folder_data["updated_at"]) if folder_data["updated_at"] else "null"
             ))
         
         return folders
@@ -141,7 +141,7 @@ async def get_folder(
             owner_id=folder_data["owner_id"],
             is_starred=folder_data["is_starred"],
             created_at=datetime.fromisoformat(folder_data["created_at"]),
-            updated_at=datetime.fromisoformat(folder_data["updated_at"]) if folder_data["updated_at"] else None
+            updated_at=datetime.fromisoformat(folder_data["updated_at"]) if folder_data["updated_at"] else "null"
         )
         
     except HTTPException:
@@ -202,7 +202,7 @@ async def update_folder(
             owner_id=updated_folder["owner_id"],
             is_starred=updated_folder["is_starred"],
             created_at=datetime.fromisoformat(updated_folder["created_at"]),
-            updated_at=datetime.fromisoformat(updated_folder["updated_at"]) if updated_folder["updated_at"] else None
+            updated_at=datetime.fromisoformat(updated_folder["updated_at"]) if updated_folder["updated_at"] else "null"
         )
         
     except HTTPException:
