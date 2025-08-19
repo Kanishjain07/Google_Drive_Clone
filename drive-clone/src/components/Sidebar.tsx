@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   HardDrive,
   Clock,
@@ -10,6 +11,7 @@ import {
   Upload,
   X
 } from 'lucide-react';
+import apiService from '../services/api';
 
 interface SidebarProps {
   isOpen?: boolean;
@@ -18,13 +20,42 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
   const [showNewMenu, setShowNewMenu] = useState(false);
+  const [storageUsage, setStorageUsage] = useState({ used: 0, total: 0 });
+  const [trashedCount, setTrashedCount] = useState(0);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    loadStorageInfo();
+    loadTrashedCount();
+  }, []);
+
+  const loadStorageInfo = async () => {
+    try {
+      const usage = await apiService.getStorageUsage();
+      setStorageUsage(usage);
+    } catch (error) {
+      console.error('Failed to load storage info:', error);
+    }
+  };
+
+  const loadTrashedCount = async () => {
+    try {
+      const [files, folders] = await Promise.all([
+        apiService.listTrashedFiles(),
+        apiService.listTrashedFolders()
+      ]);
+      setTrashedCount(files.length + folders.length);
+    } catch (error) {
+      console.error('Failed to load trashed count:', error);
+    }
+  };
 
   const navigation = [
     { name: 'My Drive', icon: HardDrive, href: '/', count: null },
     { name: 'Recent', icon: Clock, href: '/recent', count: null },
     { name: 'Starred', icon: Star, href: '/starred', count: null },
     { name: 'Shared with me', icon: Users, href: '/shared', count: null },
-    { name: 'Trash', icon: Trash2, href: '/trash', count: 12 },
+    { name: 'Trash', icon: Trash2, href: '/trash', count: trashedCount || null },
   ];
 
   return (
@@ -51,6 +82,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
               showNewMenu={showNewMenu} 
               setShowNewMenu={setShowNewMenu}
               navigation={navigation}
+              storageUsage={storageUsage}
+              navigate={navigate}
             />
           </div>
         </div>
@@ -63,6 +96,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
             showNewMenu={showNewMenu} 
             setShowNewMenu={setShowNewMenu}
             navigation={navigation}
+            storageUsage={storageUsage}
+            navigate={navigate}
           />
         </div>
       </div>
@@ -79,16 +114,30 @@ interface SidebarContentProps {
     href: string;
     count: number | null;
   }>;
+  storageUsage: { used: number; total: number };
+  navigate: (path: string) => void;
 }
 
 const SidebarContent: React.FC<SidebarContentProps> = ({ 
   showNewMenu, 
   setShowNewMenu, 
-  navigation 
+  navigation,
+  storageUsage,
+  navigate
 }) => {
   const handleNewClick = () => {
     setShowNewMenu(!showNewMenu);
   };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  };
+
+  const storagePercentage = storageUsage.total > 0 ? (storageUsage.used / storageUsage.total) * 100 : 0;
 
   return (
     <div className="flex flex-col h-0 flex-1 border-r border-gray-200 bg-white">
@@ -141,6 +190,14 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
                   <button
                     className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     role="menuitem"
+                    onClick={() => {
+                      navigate('/');
+                      setShowNewMenu(false);
+                      // Trigger new folder creation after navigation
+                      setTimeout(() => {
+                        window.dispatchEvent(new CustomEvent('createNewFolder'));
+                      }, 100);
+                    }}
                   >
                     <FolderPlus className="h-4 w-4 mr-3" />
                     New folder
@@ -149,6 +206,14 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
                   <button
                     className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     role="menuitem"
+                    onClick={() => {
+                      navigate('/');
+                      setShowNewMenu(false);
+                      // Trigger file upload after navigation
+                      setTimeout(() => {
+                        window.dispatchEvent(new CustomEvent('uploadFiles'));
+                      }, 100);
+                    }}
                   >
                     <Upload className="h-4 w-4 mr-3" />
                     File upload
@@ -156,6 +221,14 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
                   <button
                     className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     role="menuitem"
+                    onClick={() => {
+                      navigate('/');
+                      setShowNewMenu(false);
+                      // For folder upload, we'll use the same as file upload for now
+                      setTimeout(() => {
+                        window.dispatchEvent(new CustomEvent('uploadFiles'));
+                      }, 100);
+                    }}
                   >
                     <Upload className="h-4 w-4 mr-3" />
                     Folder upload
@@ -169,10 +242,10 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
         {/* Navigation */}
         <nav className="mt-6 flex-1 px-2 space-y-1">
           {navigation.map((item) => (
-            <a
+            <button
               key={item.name}
-              href={item.href}
-              className="text-gray-600 hover:bg-gray-50 hover:text-gray-900 group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors"
+              onClick={() => navigate(item.href)}
+              className="w-full text-left text-gray-600 hover:bg-gray-50 hover:text-gray-900 group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors"
             >
               <item.icon
                 className="text-gray-400 group-hover:text-gray-500 mr-3 flex-shrink-0 h-5 w-5"
@@ -184,7 +257,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
                   {item.count}
                 </span>
               )}
-            </a>
+            </button>
           ))}
         </nav>
 
@@ -193,12 +266,20 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
           <div className="bg-gray-50 rounded-lg p-3">
             <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
               <span>Storage</span>
-              <span>2.1 GB of 15 GB used</span>
+              <span>
+                {formatFileSize(storageUsage.used)} of {formatFileSize(storageUsage.total)} used
+              </span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div
-                className="bg-primary-600 h-2 rounded-full"
-                style={{ width: '14%' }}
+                className={`h-2 rounded-full ${
+                  storagePercentage > 90 
+                    ? 'bg-red-600' 
+                    : storagePercentage > 75 
+                    ? 'bg-yellow-600' 
+                    : 'bg-primary-600'
+                }`}
+                style={{ width: `${Math.min(storagePercentage, 100)}%` }}
               ></div>
             </div>
             <button className="mt-2 text-primary-600 hover:text-primary-700 text-sm font-medium">

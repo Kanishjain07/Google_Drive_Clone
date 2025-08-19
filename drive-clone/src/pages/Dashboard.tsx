@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import FileExplorer from '../components/FileExplorer';
 import Breadcrumbs from '../components/Breadcrumbs';
@@ -12,13 +12,9 @@ const Dashboard: React.FC = () => {
   ]);
   const [files, setFiles] = useState<FileItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentFolderId, setCurrentFolderId] = useState<string | undefined>(undefined);
+  const [currentFolderId] = useState<string | undefined>(undefined);
 
-  useEffect(() => {
-    loadFilesAndFolders();
-  }, [currentFolderId]);
-
-  const loadFilesAndFolders = async () => {
+  const loadFilesAndFolders = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -54,7 +50,11 @@ const Dashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentFolderId]);
+
+  useEffect(() => {
+    loadFilesAndFolders();
+  }, [currentFolderId, loadFilesAndFolders]);
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
@@ -62,6 +62,37 @@ const Dashboard: React.FC = () => {
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const handleFileUpload = async (file: File) => {
+    try {
+      await apiService.uploadFile(file, currentFolderId);
+    } catch (error) {
+      console.error('File upload failed:', error);
+      throw error;
+    }
+  };
+
+  const handleFolderCreate = async (name: string) => {
+    try {
+      await apiService.createFolder(name, currentFolderId);
+    } catch (error) {
+      console.error('Folder creation failed:', error);
+      throw error;
+    }
+  };
+
+  const handleFileDelete = async (fileId: string, type: 'file' | 'folder') => {
+    try {
+      if (type === 'file') {
+        await apiService.deleteFile(fileId);
+      } else {
+        await apiService.deleteFolder(fileId);
+      }
+    } catch (error) {
+      console.error('Delete failed:', error);
+      throw error;
+    }
   };
 
   return (
@@ -81,6 +112,11 @@ const Dashboard: React.FC = () => {
               files={files}
               viewMode={viewMode}
               onViewModeChange={setViewMode}
+              onFileUpload={handleFileUpload}
+              onFolderCreate={handleFolderCreate}
+              onFileDelete={handleFileDelete}
+              currentFolderId={currentFolderId}
+              onRefresh={loadFilesAndFolders}
             />
           )}
         </div>

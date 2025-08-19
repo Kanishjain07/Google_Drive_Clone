@@ -191,6 +191,63 @@ class ApiService {
     });
   }
 
+  // Trash endpoints
+  async listTrashedFiles(): Promise<FileResponse[]> {
+    try {
+      return this.request<FileResponse[]>('/files/trash');
+    } catch (error) {
+      console.warn('Trash functionality not available:', error);
+      return [];
+    }
+  }
+
+  async listTrashedFolders(): Promise<FolderResponse[]> {
+    try {
+      return this.request<FolderResponse[]>('/folders/trash');
+    } catch (error) {
+      console.warn('Trash functionality not available:', error);
+      return [];
+    }
+  }
+
+  async restoreFile(fileId: string): Promise<{message: string}> {
+    return this.request<{message: string}>(`/files/${fileId}/restore`, {
+      method: 'PUT',
+    });
+  }
+
+  async restoreFolder(folderId: string): Promise<{message: string}> {
+    return this.request<{message: string}>(`/folders/${folderId}/restore`, {
+      method: 'PUT',
+    });
+  }
+
+  async permanentlyDeleteFile(fileId: string): Promise<{message: string}> {
+    return this.request<{message: string}>(`/files/${fileId}/permanent`, {
+      method: 'DELETE',
+    });
+  }
+
+  async permanentlyDeleteFolder(folderId: string): Promise<{message: string}> {
+    return this.request<{message: string}>(`/folders/${folderId}/permanent`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Storage usage
+  async getStorageUsage(): Promise<{used: number, total: number}> {
+    try {
+      // Calculate storage usage from user's files
+      const files = await this.listFiles();
+      const used = files.reduce((total, file) => total + file.size, 0);
+      const total = 15 * 1024 * 1024 * 1024; // 15GB default
+      return { used, total };
+    } catch (error) {
+      console.error('Failed to calculate storage usage:', error);
+      return { used: 0, total: 15 * 1024 * 1024 * 1024 };
+    }
+  }
+
   // Utility methods
   logout() {
     localStorage.removeItem('auth_token');

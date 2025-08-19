@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import {
   Folder,
@@ -12,7 +12,8 @@ import {
   Grid3X3,
   List,
   Upload,
-  Plus
+  Plus,
+  Trash2
 } from 'lucide-react';
 
 interface FileItem {
@@ -30,19 +31,46 @@ interface FileExplorerProps {
   files: FileItem[];
   viewMode: 'grid' | 'list';
   onViewModeChange: (mode: 'grid' | 'list') => void;
+  onFileUpload?: (file: File) => Promise<void>;
+  onFolderCreate?: (name: string) => Promise<void>;
+  onFileDelete?: (fileId: string, type: 'file' | 'folder') => Promise<void>;
+  currentFolderId?: string;
+  onRefresh?: () => void;
 }
 
 const FileExplorer: React.FC<FileExplorerProps> = ({
   files,
   viewMode,
-  onViewModeChange
+  onViewModeChange,
+  onFileUpload,
+  onFolderCreate,
+  onFileDelete,
+  currentFolderId,
+  onRefresh
 }) => {
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
   const [showActions, setShowActions] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [showNewFolderModal, setShowNewFolderModal] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
 
-  const onDrop = (acceptedFiles: File[]) => {
-    console.log('Dropped files:', acceptedFiles);
-    // Handle file upload here
+  const onDrop = async (acceptedFiles: File[]) => {
+    if (!onFileUpload) return;
+    
+    setUploading(true);
+    try {
+      for (const file of acceptedFiles) {
+        await onFileUpload(file);
+      }
+      if (onRefresh) {
+        await onRefresh();
+      }
+    } catch (error) {
+      console.error('File upload failed:', error);
+      alert('File upload failed. Please try again.');
+    } finally {
+      setUploading(false);
+    }
   };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -74,10 +102,74 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
     );
   };
 
-  const handleFileAction = (action: string, fileId: string) => {
-    console.log(`Action: ${action} on file: ${fileId}`);
+  const handleFileAction = async (action: string, fileId: string, fileType: 'file' | 'folder' = 'file') => {
     setShowActions(null);
+    
+    if (action === 'delete') {
+      const confirmDelete = window.confirm(`Are you sure you want to delete this ${fileType}? It will be moved to trash.`);
+      if (confirmDelete && onFileDelete) {
+        try {
+          await onFileDelete(fileId, fileType);
+          if (onRefresh) {
+            await onRefresh();
+          }
+        } catch (error) {
+          console.error('Delete failed:', error);
+          alert('Delete failed. Please try again.');
+        }
+      }
+    } else {
+      console.log(`Action: ${action} on ${fileType}: ${fileId}`);
+    }
   };
+
+  const handleCreateFolder = async () => {
+    if (!onFolderCreate || !newFolderName.trim()) return;
+    
+    try {
+      await onFolderCreate(newFolderName.trim());
+      setNewFolderName('');
+      setShowNewFolderModal(false);
+      if (onRefresh) {
+        await onRefresh();
+      }
+    } catch (error) {
+      console.error('Folder creation failed:', error);
+      alert('Folder creation failed. Please try again.');
+    }
+  };
+
+  const handleUploadClick = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.onchange = (e) => {
+      const files = (e.target as HTMLInputElement).files;
+      if (files) {
+        onDrop(Array.from(files));
+      }
+    };
+    input.click();
+  };
+
+  // Listen for custom events from sidebar
+  useEffect(() => {
+    const handleCreateNewFolder = () => {
+      setShowNewFolderModal(true);
+    };
+
+    const handleUploadFiles = () => {
+      handleUploadClick();
+    };
+
+    window.addEventListener('createNewFolder', handleCreateNewFolder);
+    window.addEventListener('uploadFiles', handleUploadFiles);
+
+    return () => {
+      window.removeEventListener('createNewFolder', handleCreateNewFolder);
+      window.removeEventListener('uploadFiles', handleUploadFiles);
+    };
+  }, []);
 
   if (files.length === 0) {
     return (
@@ -100,14 +192,17 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
         <div className="mt-6 flex justify-center space-x-3">
           <button
             type="button"
-            className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+            className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50"
+            onClick={handleUploadClick}
+            disabled={uploading}
           >
             <Upload className="h-4 w-4 mr-2" />
-            Upload files
+            {uploading ? 'Uploading...' : 'Upload files'}
           </button>
           <button
             type="button"
             className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+            onClick={() => setShowNewFolderModal(true)}
           >
             <Plus className="h-4 w-4 mr-2" />
             New folder
@@ -123,10 +218,30 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
       
       {/* Toolbar */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-4">
           <span className="text-sm text-gray-500">
             {files.length} item{files.length !== 1 ? 's' : ''}
           </span>
+          
+          <div className="flex items-center space-x-2">
+            <button
+              type="button"
+              className="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50"
+              onClick={handleUploadClick}
+              disabled={uploading}
+            >
+              <Upload className="h-4 w-4 mr-1" />
+              {uploading ? 'Uploading...' : 'Upload'}
+            </button>
+            <button
+              type="button"
+              className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+              onClick={() => setShowNewFolderModal(true)}
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              New folder
+            </button>
+          </div>
         </div>
         
         <div className="flex items-center space-x-2">
@@ -229,6 +344,16 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
                         >
                           <Star className={`h-4 w-4 mr-3 ${file.starred ? 'text-yellow-400 fill-current' : ''}`} />
                           {file.starred ? 'Unstar' : 'Star'}
+                        </button>
+                        <button
+                          className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleFileAction('delete', file.id, file.type);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4 mr-3" />
+                          Delete
                         </button>
                       </div>
                     </div>
@@ -333,6 +458,16 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
                             <Star className={`h-4 w-4 mr-3 ${file.starred ? 'text-yellow-400 fill-current' : ''}`} />
                             {file.starred ? 'Unstar' : 'Star'}
                           </button>
+                          <button
+                            className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleFileAction('delete', file.id, file.type);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 mr-3" />
+                            Delete
+                          </button>
                         </div>
                       </div>
                     )}
@@ -349,6 +484,48 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
           <div className="bg-white rounded-lg p-6 shadow-lg">
             <Upload className="mx-auto h-12 w-12 text-primary-600" />
             <p className="mt-2 text-lg font-medium text-gray-900">Drop files to upload</p>
+          </div>
+        </div>
+      )}
+
+      {/* New Folder Modal */}
+      {showNewFolderModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 shadow-xl max-w-md w-full mx-4">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Create New Folder</h3>
+            <input
+              type="text"
+              value={newFolderName}
+              onChange={(e) => setNewFolderName(e.target.value)}
+              placeholder="Folder name"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleCreateFolder();
+                }
+              }}
+              autoFocus
+            />
+            <div className="mt-6 flex justify-end space-x-3">
+              <button
+                type="button"
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                onClick={() => {
+                  setShowNewFolderModal(false);
+                  setNewFolderName('');
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50"
+                onClick={handleCreateFolder}
+                disabled={!newFolderName.trim()}
+              >
+                Create
+              </button>
+            </div>
           </div>
         </div>
       )}
