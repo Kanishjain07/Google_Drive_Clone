@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
+import Trash from './pages/Trash';
 
 function AppRoutes() {
   const { isAuthenticated } = useAuth();
@@ -37,7 +38,7 @@ function AppRoutes() {
         />
         <Route
           path="/trash"
-          element={isAuthenticated ? <Dashboard /> : <Navigate to="/login" />}
+          element={isAuthenticated ? <Trash /> : <Navigate to="/login" />}
         />
       </Routes>
     </div>

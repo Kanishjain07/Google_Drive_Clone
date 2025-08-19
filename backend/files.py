@@ -17,7 +17,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 @router.post("/upload", response_model=FileResponse)
 async def upload_file(
     file: UploadFile = File(...),
-    folder_id: Optional[str] = Form("null"),
+    folder_id: Optional[str] = Form(None),
     current_user_email: str = Depends(get_current_user_email)
 ):
     try:
@@ -46,13 +46,16 @@ async def upload_file(
         
         # Create file record in database
         file_id = str(uuid.uuid4())
+        # Normalize folder_id to None when not provided
+        normalized_folder_id = None if folder_id in (None, "", "null") else folder_id
+
         new_file = {
             "id": file_id,
             "name": file.filename,
             "mime_type": file.content_type or "application/octet-stream",
             "size": file_size,
             "storage_path": file_path,
-            "folder_id": folder_id,
+            "folder_id": normalized_folder_id,
             "owner_id": user_id,
             "is_starred": False,
             "created_at": datetime.utcnow().isoformat(),
@@ -75,7 +78,7 @@ async def upload_file(
             owner_id=created_file["owner_id"],
             is_starred=created_file["is_starred"],
             created_at=datetime.fromisoformat(created_file["created_at"]),
-            updated_at=datetime.fromisoformat(created_file["updated_at"]) if created_file["updated_at"] else "null"
+            updated_at=datetime.fromisoformat(created_file["updated_at"]) if created_file["updated_at"] else None
         )
         
     except HTTPException:
@@ -86,7 +89,7 @@ async def upload_file(
 
 @router.get("/list", response_model=List[FileResponse])
 async def list_files(
-    folder_id: Optional[str] = "null",
+    folder_id: Optional[str] = None,
     current_user_email: str = Depends(get_current_user_email)
 ):
     try:
@@ -98,11 +101,13 @@ async def list_files(
         user_id = user_result.data[0]["id"]
         
         # Build query
-        query = supabase.table(FILES_TABLE).select("*").eq("owner_id", user_id)
-        
+        # Only list non-trashed files
+        query = supabase.table(FILES_TABLE).select("*").eq("owner_id", user_id).eq("is_trashed", False)
+
         if folder_id:
             query = query.eq("folder_id", folder_id)
         else:
+            # Supabase/PostgREST expects the string 'null' for IS NULL checks
             query = query.is_("folder_id", "null")
         
         result = query.execute()
@@ -123,7 +128,7 @@ async def list_files(
                 owner_id=file_data["owner_id"],
                 is_starred=file_data["is_starred"],
                 created_at=datetime.fromisoformat(file_data["created_at"]),
-                updated_at=datetime.fromisoformat(file_data["updated_at"]) if file_data["updated_at"] else "null"
+                updated_at=datetime.fromisoformat(file_data["updated_at"]) if file_data["updated_at"] else None
             ))
         
         return files
@@ -147,8 +152,16 @@ async def get_file(
         
         user_id = user_result.data[0]["id"]
         
-        # Get file from database
-        result = supabase.table(FILES_TABLE).select("*").eq("id", file_id).eq("owner_id", user_id).execute()
+        # Get file from database (non-trashed only)
+        result = (
+            supabase
+            .table(FILES_TABLE)
+            .select("*")
+            .eq("id", file_id)
+            .eq("owner_id", user_id)
+            .eq("is_trashed", False)
+            .execute()
+        )
         
         if not result.data:
             raise HTTPException(
@@ -167,7 +180,7 @@ async def get_file(
             owner_id=file_data["owner_id"],
             is_starred=file_data["is_starred"],
             created_at=datetime.fromisoformat(file_data["created_at"]),
-            updated_at=datetime.fromisoformat(file_data["updated_at"]) if file_data["updated_at"] else "null"
+            updated_at=datetime.fromisoformat(file_data["updated_at"]) if file_data["updated_at"] else None
         )
         
     except HTTPException:
@@ -199,15 +212,15 @@ async def delete_file(
             )
         
         file_data = result.data[0]
-        
-        # Delete physical file
-        if os.path.exists(file_data["storage_path"]):
-            os.remove(file_data["storage_path"])
-        
-        # Delete database record
-        supabase.table(FILES_TABLE).delete().eq("id", file_id).execute()
-        
-        return {"message": "File deleted successfully"}
+
+        # Soft delete: mark as trashed
+        supabase.table(FILES_TABLE).update({
+            "is_trashed": True,
+            "trashed_at": datetime.utcnow().isoformat(),
+            "updated_at": datetime.utcnow().isoformat()
+        }).eq("id", file_id).execute()
+
+        return {"message": "File moved to trash"}
         
     except HTTPException:
         raise
@@ -249,4 +262,117 @@ async def toggle_file_star(
         raise
     except Exception as e:
         print(f"Toggle file star error: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+# Trash endpoints
+
+@router.get("/trash", response_model=List[FileResponse])
+async def list_trashed_files(
+    current_user_email: str = Depends(get_current_user_email)
+):
+    try:
+        user_result = supabase.table("users").select("id").eq("email", current_user_email).execute()
+        if not user_result.data:
+            raise HTTPException(status_code=404, detail="User not found")
+        user_id = user_result.data[0]["id"]
+
+        result = (
+            supabase
+            .table(FILES_TABLE)
+            .select("*")
+            .eq("owner_id", user_id)
+            .eq("is_trashed", True)
+            .execute()
+        )
+
+        files: List[FileResponse] = []
+        for file_data in result.data or []:
+            files.append(FileResponse(
+                id=file_data["id"],
+                name=file_data["name"],
+                mime_type=file_data["mime_type"],
+                size=file_data["size"],
+                storage_path=file_data["storage_path"],
+                folder_id=file_data["folder_id"],
+                owner_id=file_data["owner_id"],
+                is_starred=file_data["is_starred"],
+                created_at=datetime.fromisoformat(file_data["created_at"]),
+                updated_at=datetime.fromisoformat(file_data["updated_at"]) if file_data["updated_at"] else None
+            ))
+
+        return files
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"List trashed files error: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+@router.put("/{file_id}/restore")
+async def restore_file(
+    file_id: str,
+    current_user_email: str = Depends(get_current_user_email)
+):
+    try:
+        user_result = supabase.table("users").select("id").eq("email", current_user_email).execute()
+        if not user_result.data:
+            raise HTTPException(status_code=404, detail="User not found")
+        user_id = user_result.data[0]["id"]
+
+        # Ensure file belongs to user and is trashed
+        result = (
+            supabase
+            .table(FILES_TABLE)
+            .select("*")
+            .eq("id", file_id)
+            .eq("owner_id", user_id)
+            .eq("is_trashed", True)
+            .execute()
+        )
+        if not result.data:
+            raise HTTPException(status_code=404, detail="File not found or not in trash")
+
+        supabase.table(FILES_TABLE).update({
+            "is_trashed": False,
+            "trashed_at": None,
+            "updated_at": datetime.utcnow().isoformat()
+        }).eq("id", file_id).execute()
+
+        return {"message": "File restored"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Restore file error: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+@router.delete("/{file_id}/permanent")
+async def permanently_delete_file(
+    file_id: str,
+    current_user_email: str = Depends(get_current_user_email)
+):
+    try:
+        user_result = supabase.table("users").select("id").eq("email", current_user_email).execute()
+        if not user_result.data:
+            raise HTTPException(status_code=404, detail="User not found")
+        user_id = user_result.data[0]["id"]
+
+        result = supabase.table(FILES_TABLE).select("*").eq("id", file_id).eq("owner_id", user_id).execute()
+        if not result.data:
+            raise HTTPException(status_code=404, detail="File not found")
+
+        file_data = result.data[0]
+
+        # Delete physical file if exists
+        try:
+            if os.path.exists(file_data["storage_path"]):
+                os.remove(file_data["storage_path"])
+        except Exception as e:
+            # Do not block permanent delete on fs error
+            print(f"Warning: failed to remove file from disk: {e}")
+
+        supabase.table(FILES_TABLE).delete().eq("id", file_id).execute()
+        return {"message": "File permanently deleted"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Permanent delete file error: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")

@@ -75,7 +75,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    noClick: false
+    noClick: true
   });
 
   const getFileIcon = (mimeType: string, type: string) => {
@@ -147,6 +147,8 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
       const files = (e.target as HTMLInputElement).files;
       if (files) {
         onDrop(Array.from(files));
+        // Clear the input value so the same file can be selected again later
+        (e.target as HTMLInputElement).value = '';
       }
     };
     input.click();
@@ -193,7 +195,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
           <button
             type="button"
             className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50"
-            onClick={handleUploadClick}
+            onClick={(e) => { e.stopPropagation(); handleUploadClick(); }}
             disabled={uploading}
           >
             <Upload className="h-4 w-4 mr-2" />
@@ -202,7 +204,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
           <button
             type="button"
             className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-            onClick={() => setShowNewFolderModal(true)}
+            onClick={(e) => { e.stopPropagation(); setShowNewFolderModal(true); }}
           >
             <Plus className="h-4 w-4 mr-2" />
             New folder
@@ -227,7 +229,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
             <button
               type="button"
               className="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50"
-              onClick={handleUploadClick}
+              onClick={(e) => { e.stopPropagation(); handleUploadClick(); }}
               disabled={uploading}
             >
               <Upload className="h-4 w-4 mr-1" />
@@ -236,7 +238,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
             <button
               type="button"
               className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-              onClick={() => setShowNewFolderModal(true)}
+              onClick={(e) => { e.stopPropagation(); setShowNewFolderModal(true); }}
             >
               <Plus className="h-4 w-4 mr-1" />
               New folder

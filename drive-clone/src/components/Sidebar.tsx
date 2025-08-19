@@ -196,7 +196,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
                       // Trigger new folder creation after navigation
                       setTimeout(() => {
                         window.dispatchEvent(new CustomEvent('createNewFolder'));
-                      }, 100);
+                      }, 200);
                     }}
                   >
                     <FolderPlus className="h-4 w-4 mr-3" />
@@ -209,10 +209,13 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
                     onClick={() => {
                       navigate('/');
                       setShowNewMenu(false);
-                      // Trigger file upload after navigation
+                      // Trigger file upload after navigation with fallback dispatch
                       setTimeout(() => {
                         window.dispatchEvent(new CustomEvent('uploadFiles'));
-                      }, 100);
+                        setTimeout(() => {
+                          window.dispatchEvent(new CustomEvent('uploadFiles'));
+                        }, 300);
+                      }, 200);
                     }}
                   >
                     <Upload className="h-4 w-4 mr-3" />
@@ -224,10 +227,13 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
                     onClick={() => {
                       navigate('/');
                       setShowNewMenu(false);
-                      // For folder upload, we'll use the same as file upload for now
+                      // For folder upload, we'll use the same as file upload for now, with fallback
                       setTimeout(() => {
                         window.dispatchEvent(new CustomEvent('uploadFiles'));
-                      }, 100);
+                        setTimeout(() => {
+                          window.dispatchEvent(new CustomEvent('uploadFiles'));
+                        }, 300);
+                      }, 200);
                     }}
                   >
                     <Upload className="h-4 w-4 mr-3" />
