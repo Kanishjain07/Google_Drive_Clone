@@ -27,7 +27,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setIsLoading(true);
     
     try {
-      const response = await fetch('http://localhost:8000/auth/login', {
+      const base = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${base}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -42,7 +43,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         localStorage.setItem('auth_token', data.access_token);
         
         // Get user info
-        const userResponse = await fetch('http://localhost:8000/auth/me', {
+        const userResponse = await fetch(`${base}/auth/me`, {
           headers: {
             'Authorization': `Bearer ${data.access_token}`,
           },
@@ -77,7 +78,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setIsLoading(true);
     
     try {
-      const response = await fetch('http://localhost:8000/auth/signup', {
+      const base = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${base}/auth/signup`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -90,7 +92,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const newUser: User = {
           id: userData.id,
           name: userData.name,
-          email: userData.name,
+          email: userData.email,
           avatar: name.split(' ').map(n => n[0]).join('').toUpperCase()
         };
         

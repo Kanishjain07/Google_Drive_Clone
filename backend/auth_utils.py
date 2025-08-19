@@ -36,7 +36,9 @@ def verify_token(token: str) -> Optional[str]:
         if email is None:
             return None
         return email
-    except JWTError:
+    except JWTError as e:
+        # Helpful debug for 401s without exposing secrets
+        print(f"Token verification failed: {str(e)}")
         return None
 
 async def get_current_user_email(

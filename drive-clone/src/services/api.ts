@@ -72,6 +72,17 @@ class ApiService {
       const response = await fetch(url, config);
       
       if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          // Token invalid/expired or missing -> clear and redirect to login
+          try {
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('drive-clone-user');
+          } catch {}
+          // Redirect outside of React tree is acceptable for a global guard
+          if (typeof window !== 'undefined') {
+            window.location.href = '/login';
+          }
+        }
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
       }
@@ -127,6 +138,15 @@ class ApiService {
     });
 
     if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        try {
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('drive-clone-user');
+        } catch {}
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login';
+        }
+      }
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.detail || `Upload failed: ${response.status}`);
     }
