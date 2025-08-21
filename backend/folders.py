@@ -100,6 +100,43 @@ async def list_folders(
         print(f"List folders error: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
+@router.get("/trash", response_model=List[FolderResponse])
+async def list_trashed_folders(
+    current_user_email: str = Depends(get_current_user_email)
+):
+    try:
+        user_result = supabase.table("users").select("id").eq("email", current_user_email).execute()
+        if not user_result.data:
+            raise HTTPException(status_code=404, detail="User not found")
+        user_id = user_result.data[0]["id"]
+
+        result = (
+            supabase
+            .table(FOLDERS_TABLE)
+            .select("*")
+            .eq("owner_id", user_id)
+            .eq("is_trashed", True)
+            .execute()
+        )
+
+        return [
+            FolderResponse(
+                id=folder["id"],
+                name=folder["name"],
+                parent_id=folder["parent_id"],
+                owner_id=folder["owner_id"],
+                is_starred=folder["is_starred"],
+                created_at=datetime.fromisoformat(folder["created_at"]),
+                updated_at=datetime.fromisoformat(folder["updated_at"]) if folder["updated_at"] else None
+            )
+            for folder in (result.data or [])
+        ]
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"List trashed folders error: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
 # 📂 Get Folder
 @router.get("/{folder_id}", response_model=FolderResponse)
 async def get_folder(folder_id: UUID, current_user_email: str = Depends(get_current_user_email)):
@@ -221,45 +258,6 @@ async def toggle_folder_star(folder_id: UUID, current_user_email: str = Depends(
         return {"message": f"Folder {'starred' if not current_star else 'unstarred'}"}
     except Exception as e:
         print(f"Toggle folder star error: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")
-
-# Trash endpoints for folders
-
-@router.get("/trash", response_model=List[FolderResponse])
-async def list_trashed_folders(
-    current_user_email: str = Depends(get_current_user_email)
-):
-    try:
-        user_result = supabase.table("users").select("id").eq("email", current_user_email).execute()
-        if not user_result.data:
-            raise HTTPException(status_code=404, detail="User not found")
-        user_id = user_result.data[0]["id"]
-
-        result = (
-            supabase
-            .table(FOLDERS_TABLE)
-            .select("*")
-            .eq("owner_id", user_id)
-            .eq("is_trashed", True)
-            .execute()
-        )
-
-        return [
-            FolderResponse(
-                id=folder["id"],
-                name=folder["name"],
-                parent_id=folder["parent_id"],
-                owner_id=folder["owner_id"],
-                is_starred=folder["is_starred"],
-                created_at=datetime.fromisoformat(folder["created_at"]),
-                updated_at=datetime.fromisoformat(folder["updated_at"]) if folder["updated_at"] else None
-            )
-            for folder in (result.data or [])
-        ]
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"List trashed folders error: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.put("/{folder_id}/restore")
