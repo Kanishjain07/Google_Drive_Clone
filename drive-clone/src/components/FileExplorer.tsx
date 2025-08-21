@@ -15,6 +15,7 @@ import {
   Plus,
   Trash2
 } from 'lucide-react';
+import apiService from '../services/api';
 
 interface FileItem {
   id: string;
@@ -117,6 +118,20 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
           console.error('Delete failed:', error);
           alert('Delete failed. Please try again.');
         }
+      }
+    } else if (action === 'star') {
+      try {
+        if (fileType === 'file') {
+          await apiService.toggleFileStar(fileId);
+        } else {
+          await apiService.toggleFolderStar(fileId);
+        }
+        if (onRefresh) {
+          await onRefresh();
+        }
+      } catch (error) {
+        console.error('Star toggle failed:', error);
+        alert('Star toggle failed. Please try again.');
       }
     } else {
       console.log(`Action: ${action} on ${fileType}: ${fileId}`);
