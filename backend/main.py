@@ -16,7 +16,8 @@ app.add_middleware(
     allow_origins=[
         settings.frontend_url, 
         "http://localhost:3000",
-        "http://localhost:3001"
+        "http://localhost:3001",
+        "https://" + settings.frontend_url if not settings.frontend_url.startswith("http") else settings.frontend_url
     ],
     allow_credentials=True,
     allow_methods=["*"],
