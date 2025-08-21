@@ -227,11 +227,11 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
                     onClick={() => {
                       navigate('/');
                       setShowNewMenu(false);
-                      // For folder upload, we'll use the same as file upload for now, with fallback
+                      // Trigger folder upload with a dedicated event, with fallback double dispatch
                       setTimeout(() => {
-                        window.dispatchEvent(new CustomEvent('uploadFiles'));
+                        window.dispatchEvent(new CustomEvent('uploadFolders'));
                         setTimeout(() => {
-                          window.dispatchEvent(new CustomEvent('uploadFiles'));
+                          window.dispatchEvent(new CustomEvent('uploadFolders'));
                         }, 300);
                       }, 200);
                     }}

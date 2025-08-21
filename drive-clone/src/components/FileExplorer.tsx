@@ -169,6 +169,24 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
     input.click();
   };
 
+  const handleFolderUploadClick = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    // Enable folder selection in supported browsers
+    (input as any).webkitdirectory = true;
+    input.setAttribute('webkitdirectory', '');
+    input.setAttribute('directory', '');
+    input.onchange = (e) => {
+      const files = (e.target as HTMLInputElement).files;
+      if (files) {
+        onDrop(Array.from(files));
+        (e.target as HTMLInputElement).value = '';
+      }
+    };
+    input.click();
+  };
+
   // Listen for custom events from sidebar
   useEffect(() => {
     const handleCreateNewFolder = () => {
@@ -179,12 +197,18 @@ const FileExplorer: React.FC<FileExplorerProps> = ({
       handleUploadClick();
     };
 
+    const handleUploadFolders = () => {
+      handleFolderUploadClick();
+    };
+
     window.addEventListener('createNewFolder', handleCreateNewFolder);
     window.addEventListener('uploadFiles', handleUploadFiles);
+    window.addEventListener('uploadFolders', handleUploadFolders);
 
     return () => {
       window.removeEventListener('createNewFolder', handleCreateNewFolder);
       window.removeEventListener('uploadFiles', handleUploadFiles);
+      window.removeEventListener('uploadFolders', handleUploadFolders);
     };
   }, []);
 
