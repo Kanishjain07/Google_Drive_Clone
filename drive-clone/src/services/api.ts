@@ -230,6 +230,24 @@ class ApiService {
     }
   }
 
+  // Starred endpoints
+  async listStarredFiles(): Promise<FileResponse[]> {
+    return this.request<FileResponse[]>('/files/starred');
+  }
+
+  async listStarredFolders(): Promise<FolderResponse[]> {
+    return this.request<FolderResponse[]>('/folders/starred');
+  }
+
+  // Recent endpoints
+  async listRecentFiles(): Promise<FileResponse[]> {
+    return this.request<FileResponse[]>('/files/recent');
+  }
+
+  async listRecentFolders(): Promise<FolderResponse[]> {
+    return this.request<FolderResponse[]>('/folders/recent');
+  }
+
   async restoreFile(fileId: string): Promise<{message: string}> {
     return this.request<{message: string}>(`/files/${fileId}/restore`, {
       method: 'PUT',

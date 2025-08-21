@@ -5,6 +5,9 @@ import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
 import Trash from './pages/Trash';
+import Recent from './pages/Recent';
+import Starred from './pages/Starred';
+import Shared from './pages/Shared';
 
 function AppRoutes() {
   const { isAuthenticated } = useAuth();
@@ -24,18 +27,9 @@ function AppRoutes() {
           path="/"
           element={isAuthenticated ? <Dashboard /> : <Navigate to="/login" />}
         />
-        <Route
-          path="/recent"
-          element={isAuthenticated ? <Dashboard /> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/starred"
-          element={isAuthenticated ? <Dashboard /> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/shared"
-          element={isAuthenticated ? <Dashboard /> : <Navigate to="/login" />}
-        />
+        <Route path="/recent" element={isAuthenticated ? <Recent /> : <Navigate to="/login" />} />
+        <Route path="/starred" element={isAuthenticated ? <Starred /> : <Navigate to="/login" />} />
+        <Route path="/shared" element={isAuthenticated ? <Shared /> : <Navigate to="/login" />} />
         <Route
           path="/trash"
           element={isAuthenticated ? <Trash /> : <Navigate to="/login" />}

@@ -180,6 +180,90 @@ async def list_trashed_files(
         print(f"List trashed files error: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
+@router.get("/starred", response_model=List[FileResponse])
+async def list_starred_files(
+    current_user_email: str = Depends(get_current_user_email)
+):
+    try:
+        user_result = supabase.table("users").select("id").eq("email", current_user_email).execute()
+        if not user_result.data:
+            raise HTTPException(status_code=404, detail="User not found")
+        user_id = user_result.data[0]["id"]
+
+        result = (
+            supabase
+            .table(FILES_TABLE)
+            .select("*")
+            .eq("owner_id", user_id)
+            .eq("is_starred", True)
+            .eq("is_trashed", False)
+            .execute()
+        )
+
+        files: List[FileResponse] = []
+        for file_data in result.data or []:
+            files.append(FileResponse(
+                id=file_data["id"],
+                name=file_data["name"],
+                mime_type=file_data["mime_type"],
+                size=file_data["size"],
+                storage_path=file_data["storage_path"],
+                folder_id=file_data["folder_id"],
+                owner_id=file_data["owner_id"],
+                is_starred=file_data["is_starred"],
+                created_at=datetime.fromisoformat(file_data["created_at"]),
+                updated_at=datetime.fromisoformat(file_data["updated_at"]) if file_data["updated_at"] else None
+            ))
+
+        return files
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"List starred files error: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+@router.get("/recent", response_model=List[FileResponse])
+async def list_recent_files(
+    current_user_email: str = Depends(get_current_user_email)
+):
+    try:
+        user_result = supabase.table("users").select("id").eq("email", current_user_email).execute()
+        if not user_result.data:
+            raise HTTPException(status_code=404, detail="User not found")
+        user_id = user_result.data[0]["id"]
+
+        result = (
+            supabase
+            .table(FILES_TABLE)
+            .select("*")
+            .eq("owner_id", user_id)
+            .eq("is_trashed", False)
+            .order("updated_at", desc=True)
+            .execute()
+        )
+
+        files: List[FileResponse] = []
+        for file_data in result.data or []:
+            files.append(FileResponse(
+                id=file_data["id"],
+                name=file_data["name"],
+                mime_type=file_data["mime_type"],
+                size=file_data["size"],
+                storage_path=file_data["storage_path"],
+                folder_id=file_data["folder_id"],
+                owner_id=file_data["owner_id"],
+                is_starred=file_data["is_starred"],
+                created_at=datetime.fromisoformat(file_data["created_at"]),
+                updated_at=datetime.fromisoformat(file_data["updated_at"]) if file_data["updated_at"] else None
+            ))
+
+        return files
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"List recent files error: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
 @router.get("/{file_id}", response_model=FileResponse)
 async def get_file(
     file_id: str,
